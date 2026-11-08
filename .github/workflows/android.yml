@@ -1,0 +1,168 @@
+name: Build ANYA AI APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Android Project
+        run: |
+          mkdir -p app/src/main/java/com/anya/ai
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "ANYA"
+          include ':app'
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.anya.ai'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.anya.ai'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:theme="@android:style/Theme.Material.NoActionBar"
+                  android:label="ANYA AI">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/anya/ai/MainActivity.java <<'EOF'
+          package com.anya.ai;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.graphics.Color;
+          import android.view.Gravity;
+          import android.widget.*;
+
+          public class MainActivity extends Activity {
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  LinearLayout layout = new LinearLayout(this);
+                  layout.setOrientation(1);
+                  layout.setGravity(Gravity.CENTER);
+                  layout.setPadding(25,25,25,25);
+                  layout.setBackgroundColor(Color.rgb(3,10,28));
+
+                  TextView title = new TextView(this);
+                  title.setText("🌙 ANYA AI");
+                  title.setTextSize(32);
+                  title.setTextColor(Color.CYAN);
+                  title.setGravity(Gravity.CENTER);
+
+                  TextView orb = new TextView(this);
+                  orb.setText("✧");
+                  orb.setTextSize(90);
+                  orb.setTextColor(Color.CYAN);
+                  orb.setGravity(Gravity.CENTER);
+
+                  TextView welcome = new TextView(this);
+                  welcome.setText("YOUR PERSONAL AI ASSISTANT");
+                  welcome.setTextColor(Color.WHITE);
+                  welcome.setTextSize(16);
+
+                  EditText input = new EditText(this);
+                  input.setHint("Ask ANYA anything...");
+                  input.setTextColor(Color.WHITE);
+                  input.setHintTextColor(Color.GRAY);
+
+                  Button send = new Button(this);
+                  send.setText("SEND");
+
+                  TextView reply = new TextView(this);
+                  reply.setText("Hello! I am ANYA AI.");
+                  reply.setTextColor(Color.CYAN);
+                  reply.setTextSize(18);
+
+                  send.setOnClickListener(v -> {
+                      reply.setText("ANYA AI: Your message: " +
+                          input.getText().toString());
+                  });
+
+                  layout.addView(title);
+                  layout.addView(orb);
+                  layout.addView(welcome);
+                  layout.addView(input);
+                  layout.addView(send);
+                  layout.addView(reply);
+
+                  setContentView(layout);
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: |
+          gradle wrapper --gradle-version 8.9
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ANYA-AI-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
